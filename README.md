@@ -50,3 +50,17 @@ To include pt2matsim in your own maven project, add this snippet to your pom.xml
     </dependencies>
 
 The master branch contains the snapshot version with the latest changes. Clone the git repository to use it.
+
+To use the forked repo, please use maven install after cloning the repo. This will create a pt2Matsim jar version of 23.4_r in your .m2 folder allowing for the use of the version 23.4_r in the maven dependency in the pom.xml file.
+
+i.e., the dependency lines should be changed to 
+
+ <dependencies>
+        <dependency>
+            <groupId>org.matsim</groupId>
+            <artifactId>pt2matsim</artifactId>
+            <version>23.4_4</version>
+        </dependency>
+    </dependencies>
+
+
