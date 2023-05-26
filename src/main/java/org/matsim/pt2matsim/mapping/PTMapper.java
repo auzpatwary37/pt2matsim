@@ -21,14 +21,20 @@
 
 package org.matsim.pt2matsim.mapping;
 
-import org.apache.logging.log4j.Logger;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.NetworkWriter;
+import org.matsim.core.config.Config;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
+import org.matsim.pt.transitSchedule.api.TransitScheduleWriter;
 import org.matsim.pt.utils.TransitScheduleValidator;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.config.PublicTransitMappingStrings;
@@ -44,9 +50,6 @@ import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.PTMapperTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
 import org.matsim.pt2matsim.tools.debug.ScheduleCleaner;
-
-import java.util.List;
-import java.util.Set;
 
 /**
  * References an unmapped transit schedule to a network. Combines
@@ -72,14 +75,14 @@ public class PTMapper {
 	private Network network;
 	private TransitSchedule schedule;
 
-	public static void mapScheduleToNetwork(TransitSchedule schedule, Network network, PublicTransitMappingConfigGroup config) {
+	public static void mapScheduleToNetwork(TransitSchedule schedule, Network network, PublicTransitMappingConfigGroup config, Config mainConfig) {
 		if(config.getInputNetworkFile() != null) {
 			log.warn("The input network file set in PublicTransitMappingConfigGroup is ignored");
 		}
 		if(config.getInputScheduleFile() != null) {
 			log.warn("The input schedule file set in PublicTransitMappingConfigGroup is ignored");
 		}
-		new PTMapper(schedule, network).run(config);
+		new PTMapper(schedule, network).run(config,mainConfig);
 	}
 
 	/**
@@ -97,15 +100,24 @@ public class PTMapper {
 		this.network = network;
 	}
 
-	public void run(PublicTransitMappingConfigGroup config) {
-		run(config, null, null);
+	public void run(PublicTransitMappingConfigGroup config, Config mainConfig) {
+		String tempNetwork = "net.xml";
+		String tempSchedule = "ts.xml";
+		new NetworkWriter(this.network).write(tempNetwork);
+		new TransitScheduleWriter(this.schedule).writeFile(tempSchedule);
+		config.setInputNetworkFile(tempNetwork);
+		mainConfig.network().setInputFile(tempNetwork);
+		config.setInputScheduleFile(tempSchedule);
+		mainConfig.transit().setTransitScheduleFile(tempSchedule);
+		run(config,mainConfig, null, null);
 	}
 	
 	/**
 	 * Maps the schedule to the network with parameters defined in config
 	 */
-	public void run(PublicTransitMappingConfigGroup config, LinkCandidateCreator linkCandidateCreator, ScheduleRoutersFactory scheduleRoutersFactory) {
+	public void run(PublicTransitMappingConfigGroup config,Config mainConfig, LinkCandidateCreator linkCandidateCreator, ScheduleRoutersFactory scheduleRoutersFactory) {
 		// use defaults
+		PTMapper.matchInfo(mainConfig, config);
 		if(linkCandidateCreator == null) {
 			linkCandidateCreator = new LinkCandidateCreatorStandard(schedule, network,
 					config.getNLinkThreshold(),
@@ -115,7 +127,7 @@ public class PTMapper {
 		}
 		
 		if(scheduleRoutersFactory == null) {
-			scheduleRoutersFactory = new ScheduleRoutersStandard.Factory(schedule, network, config.getTransportModeAssignment(), config.getTravelCostType(), config.getRoutingWithCandidateDistance());
+			scheduleRoutersFactory = new ScheduleRoutersStandard.Factory(schedule,mainConfig, network, config.getTransportModeAssignment(), config.getTravelCostType(), config.getRoutingWithCandidateDistance());
 		}
 
 		run(linkCandidateCreator,
@@ -359,5 +371,20 @@ public class PTMapper {
 
 	public Network getNetwork() {
 		return network;
+	}
+	
+	public static void matchInfo(Config config, PublicTransitMappingConfigGroup ptConfig) {
+		if(config.network().getInputFile()!=null && ptConfig.getInputNetworkFile()!=null && !config.network().getInputFile().equals(ptConfig.getInputNetworkFile())) {
+			log.warn("Config and ptConfig have different input network file. Overriding the Config one with the ptConfig one");
+			config.network().setInputFile(ptConfig.getInputNetworkFile());
+		}else if(config.network().getInputFile()==null){
+			config.network().setInputFile(ptConfig.getInputNetworkFile());
+		}
+		if(config.transit().getTransitScheduleFile()!=null && ptConfig.getInputScheduleFile()!=null && !config.transit().getTransitScheduleFile().equals(ptConfig.getInputScheduleFile())) {
+			log.warn("Config and ptConfig have different input schedule file. Overriding the Config one with the ptConfig one");
+			config.transit().setTransitScheduleFile(ptConfig.getInputScheduleFile());
+		}else if(config.transit().getTransitScheduleFile()==null) {
+			config.transit().setTransitScheduleFile(ptConfig.getInputScheduleFile());
+		}
 	}
 }

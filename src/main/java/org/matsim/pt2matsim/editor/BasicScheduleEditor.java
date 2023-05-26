@@ -18,34 +18,46 @@
 
 package org.matsim.pt2matsim.editor;
 
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.opencsv.exceptions.CsvValidationException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.NetworkFactory;
 import org.matsim.api.core.v01.network.Node;
+import org.matsim.core.config.Config;
 import org.matsim.core.population.routes.NetworkRoute;
 import org.matsim.core.population.routes.RouteUtils;
 import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.utils.collections.CollectionUtils;
 import org.matsim.core.utils.collections.Tuple;
-import org.matsim.pt.transitSchedule.api.*;
+import org.matsim.pt.transitSchedule.api.TransitLine;
+import org.matsim.pt.transitSchedule.api.TransitRoute;
+import org.matsim.pt.transitSchedule.api.TransitRouteStop;
+import org.matsim.pt.transitSchedule.api.TransitSchedule;
+import org.matsim.pt.transitSchedule.api.TransitScheduleFactory;
+import org.matsim.pt.transitSchedule.api.TransitStopArea;
+import org.matsim.pt.transitSchedule.api.TransitStopFacility;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRouters;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.PTMapperTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+import com.opencsv.exceptions.CsvValidationException;
 
 /**
  * Implementation of a schedule editor. Provides methods for
@@ -74,7 +86,7 @@ public class BasicScheduleEditor implements ScheduleEditor {
 	}
 
 
-	public BasicScheduleEditor(TransitSchedule schedule, Network network) {
+	public BasicScheduleEditor(TransitSchedule schedule, Network network,Config config) {
 		this.schedule = schedule;
 		this.network = network;
 		this.scheduleFactory = schedule.getFactory();
@@ -82,7 +94,7 @@ public class BasicScheduleEditor implements ScheduleEditor {
 		this.parentStops = new ParentStops();
 
 		log.info("Guessing routers based on schedule transport modes and used network transport modes.");
-		this.routers = NetworkTools.guessRouters(schedule, network).createInstance();
+		this.routers = NetworkTools.guessRouters(schedule, network,config).createInstance();
 	}
 
 	public Network getNetwork() {
@@ -281,9 +293,9 @@ public class BasicScheduleEditor implements ScheduleEditor {
 
 		NetworkRoute routeBeforeCut = transitRoute.getRoute().getSubRoute(transitRoute.getRoute().getStartLinkId(), cutFromLinkId);
 		NetworkRoute routeAfterCut = transitRoute.getRoute().getSubRoute(cutToLinkId, transitRoute.getRoute().getEndLinkId());
-
-		LeastCostPathCalculator.Path path1 = routers.calcLeastCostPath(cutFromLink.getToNode().getId(), viaLink.getFromNode().getId(), transitLine, transitRoute);
-		LeastCostPathCalculator.Path path2 = routers.calcLeastCostPath(viaLink.getToNode().getId(), cutToLink.getFromNode().getId(), transitLine, transitRoute);
+//modification for inverted network
+		LeastCostPathCalculator.Path path1 = routers.calcLeastCostPath(cutFromLink, viaLink, transitLine, transitRoute);
+		LeastCostPathCalculator.Path path2 = routers.calcLeastCostPath(viaLink, cutToLink, transitLine, transitRoute);
 
 		if(path1 != null && path2 != null) {
 			List<Id<Link>> newLinkSequence = new ArrayList<>(routeBeforeCut.getLinkIds());
@@ -482,8 +494,8 @@ public class BasicScheduleEditor implements ScheduleEditor {
 
 			Link currentLink = network.getLinks().get(currentLinkId);
 			Link nextLink = network.getLinks().get(routeStops.get(i + 1).getStopFacility().getLinkId());
-
-			List<Id<Link>> path = PTMapperTools.getLinkIdsFromPath(routers.calcLeastCostPath(currentLink.getToNode().getId(), nextLink.getFromNode().getId(), transitLine, transitRoute));
+// change due to inverted network
+			List<Id<Link>> path = PTMapperTools.getLinkIdsFromPath(routers.calcLeastCostPath(currentLink, nextLink, transitLine, transitRoute));
 
 			if(path != null)
 				linkSequence.addAll(path);

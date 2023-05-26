@@ -1,6 +1,8 @@
 package org.matsim.pt2matsim.examples;
 
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.OsmConverterConfigGroup;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
@@ -34,9 +36,10 @@ public class Workflow {
 		PublicTransitMappingConfigGroup mapperConfig = PublicTransitMappingConfigGroup.createDefaultConfig();
 		Network network = NetworkTools.readNetwork(osmConfig.getOutputNetworkFile());
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(unmappedSchedule);
-
+		Config config = ConfigUtils.createConfig();
+		PTMapper.matchInfo(config, mapperConfig);
 		// map schedule to network
-		PTMapper.mapScheduleToNetwork(schedule,  network, mapperConfig);
+		PTMapper.mapScheduleToNetwork(schedule,  network, mapperConfig,config);
 
 		// write mapping results
 		NetworkTools.writeNetwork(network, "output/network.xml.gz");

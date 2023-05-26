@@ -1,31 +1,39 @@
 package org.matsim.pt2matsim.mapping.networkRouter;
 
-import org.apache.logging.log4j.Logger;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.Node;
 import org.matsim.api.core.v01.population.Person;
+import org.matsim.core.config.Config;
+import org.matsim.core.network.algorithms.NetworkInverter;
+import org.matsim.core.network.algorithms.NetworkTurnInfoBuilder;
+import org.matsim.core.network.algorithms.NetworkTurnInfoBuilderI;
 import org.matsim.core.router.FastAStarLandmarksFactory;
+import org.matsim.core.router.costcalculators.TravelDisutilityFactory;
 import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.router.util.LeastCostPathCalculatorFactory;
+import org.matsim.core.router.util.LinkToLinkTravelTime;
 import org.matsim.core.router.util.TravelDisutility;
 import org.matsim.core.router.util.TravelTime;
+import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.CoordUtils;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitRouteStop;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
+import org.matsim.pt2matsim.mapping.InvertedLeastPathCalculator;
 import org.matsim.pt2matsim.mapping.linkCandidateCreation.LinkCandidate;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.PTMapperTools;
 import org.matsim.vehicles.Vehicle;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Creates a Router for each transportMode of a schedule.
@@ -43,32 +51,35 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 	private final Network network;
 	private final Map<String, Set<String>> transportModeAssignment;
 	private final PublicTransitMappingConfigGroup.TravelCostType travelCostType;
-
+	private final Config config;
 	// path calculators
 	private final Map<String, PathCalculator> pathCalculatorsByMode = new HashMap<>();
 	private final Map<String, Network> networksByMode = new HashMap<>();
 	private final boolean considerCandidateDist;
 	private final int nThreads;
+	private NetworkTurnInfoBuilderI networkTurninforBuilder;
 
-	private ScheduleRoutersStandard(TransitSchedule schedule, Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance) {
+	private ScheduleRoutersStandard(TransitSchedule schedule, Config config,Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance) {
 		this.schedule = schedule;
 		this.network = network;
 		this.transportModeAssignment = transportModeAssignment;
 		this.travelCostType = costType;
 		this.considerCandidateDist = routingWithCandidateDistance;
 		this.nThreads = 8;
-
+		this.config = config;
+		this.networkTurninforBuilder = new NetworkTurnInfoBuilder(ScenarioUtils.loadScenario(this.config));
 		load();
 	}
 
-	private ScheduleRoutersStandard(TransitSchedule schedule, Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance, int nThreads) {
+	private ScheduleRoutersStandard(TransitSchedule schedule, Config config, Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance, int nThreads) {
 		this.schedule = schedule;
 		this.network = network;
 		this.transportModeAssignment = transportModeAssignment;
 		this.travelCostType = costType;
 		this.considerCandidateDist = routingWithCandidateDistance;
 		this.nThreads = nThreads;
-
+		this.config = config;
+		this.networkTurninforBuilder = new NetworkTurnInfoBuilder(ScenarioUtils.loadScenario(this.config));
 		load();
 	}
 
@@ -80,6 +91,7 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 		log.info("Creating network routers for transit routes...");
 		log.info("Initiating network and router for transit routes...");
 		LeastCostPathCalculatorFactory factory = new FastAStarLandmarksFactory(nThreads);
+		
 		for(TransitLine transitLine : schedule.getTransitLines().values()) {
 			for(TransitRoute transitRoute : transitLine.getRoutes().values()) {
 				String scheduleMode = transitRoute.getTransportMode();
@@ -89,11 +101,17 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 					Set<String> networkTransportModes = transportModeAssignment.get(scheduleMode);
 
 					Network filteredNetwork = NetworkTools.createFilteredNetworkByLinkMode(this.network, networkTransportModes);
-
+					Network network = new NetworkInverter(filteredNetwork,this.networkTurninforBuilder.createAllowedTurnInfos()).getInvertedNetwork();
 					LocalRouter r = new LocalRouter();
-
-					tmpRouter = new PathCalculator(factory.createPathCalculator(filteredNetwork, r, r));
-
+					TravelDisutilityFactory disutility = new TravelDisutilityFactory() {
+                        @Override
+                        public TravelDisutility createTravelDisutility(TravelTime timeCalculator) {
+                            return r;
+                        };
+                        };
+					InvertedLeastPathCalculator lpc = InvertedLeastPathCalculator.create(factory, disutility, filteredNetwork, network, r);
+					//tmpRouter = new PathCalculator(factory.createPathCalculator(filteredNetwork, r, r));
+					tmpRouter = new PathCalculator(lpc);
 					pathCalculatorsByMode.put(scheduleMode, tmpRouter);
 					networksByMode.put(scheduleMode, filteredNetwork);
 				}
@@ -104,7 +122,24 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 
 	@Override
 	public LeastCostPathCalculator.Path calcLeastCostPath(LinkCandidate fromLinkCandidate, LinkCandidate toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
+		if(pathCalculatorsByMode.get(transitRoute.getTransportMode()).getLeastCostPathCalculator() instanceof InvertedLeastPathCalculator) {
+			InvertedLeastPathCalculator lpc = (InvertedLeastPathCalculator) pathCalculatorsByMode.get(transitRoute.getTransportMode()).getLeastCostPathCalculator();
+			Node fromNode = lpc.getInvertedNetwork().getNodes().get(Id.createNodeId(fromLinkCandidate.getLink().getId().toString()));
+			Node toNode = lpc.getInvertedNetwork().getNodes().get(Id.createNodeId(toLinkCandidate.getLink().getId().toString()));
+			return pathCalculatorsByMode.get(transitRoute.getTransportMode()).calcPath(fromNode,toNode);
+		}
 		return this.calcLeastCostPath(fromLinkCandidate.getLink().getToNode().getId(), toLinkCandidate.getLink().getFromNode().getId(), transitLine, transitRoute);
+	}
+	
+	@Override
+	public LeastCostPathCalculator.Path calcLeastCostPath(Link fromLinkCandidate, Link toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
+		if(pathCalculatorsByMode.get(transitRoute.getTransportMode()).getLeastCostPathCalculator() instanceof InvertedLeastPathCalculator) {
+			InvertedLeastPathCalculator lpc = (InvertedLeastPathCalculator) pathCalculatorsByMode.get(transitRoute.getTransportMode()).getLeastCostPathCalculator();
+			Node fromNode = lpc.getInvertedNetwork().getNodes().get(Id.createNodeId(fromLinkCandidate.getId().toString()));
+			Node toNode = lpc.getInvertedNetwork().getNodes().get(Id.createNodeId(toLinkCandidate.getId().toString()));
+			return pathCalculatorsByMode.get(transitRoute.getTransportMode()).calcPath(fromNode,toNode);
+		}
+		return this.calcLeastCostPath(fromLinkCandidate.getToNode().getId(), toLinkCandidate.getFromNode().getId(), transitLine, transitRoute);
 	}
 
 	@Override
@@ -115,7 +150,6 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 		Node fromNode = n.getNodes().get(fromNodeId);
 		Node toNode = n.getNodes().get(toNodeId);
 		if(fromNode == null || toNode == null) return null;
-
 		return pathCalculatorsByMode.get(transitRoute.getTransportMode()).calcPath(fromNode, toNode);
 	}
 
@@ -140,7 +174,7 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 	/**
 	 * Class is sent to path calculator factory
 	 */
-	private class LocalRouter implements TravelDisutility, TravelTime {
+	private class LocalRouter implements TravelDisutility, TravelTime, LinkToLinkTravelTime {
 
 		@Override
 		public double getLinkTravelDisutility(Link link, double time, Person person, Vehicle vehicle) {
@@ -156,6 +190,12 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 		public double getLinkTravelTime(Link link, double time, Person person, Vehicle vehicle) {
 			return link.getLength() / link.getFreespeed();
 		}
+
+		@Override
+		public double getLinkToLinkTravelTime(Link fromLink, Link toLink, double time, Person person, Vehicle vehicle) {
+			
+			return this.getLinkTravelTime(fromLink, time, null, null);
+		}
 	}
 
 	/**
@@ -164,25 +204,27 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 	public static class Factory implements ScheduleRoutersFactory {
 		private final TransitSchedule schedule;
 		private final Network network;
+		private final Config config;
 		private final Map<String, Set<String>> transportModeAssignment;
 		private final PublicTransitMappingConfigGroup.TravelCostType costType;
 		private boolean routingWithCandidateDistance;
 		
-		public Factory(TransitSchedule schedule, Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance) {
+		public Factory(TransitSchedule schedule, Config config, Network network, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType costType, boolean routingWithCandidateDistance) {
 			this.schedule = schedule;
 			this.network = network;
 			this.transportModeAssignment = transportModeAssignment;
 			this.costType = costType;
 			this.routingWithCandidateDistance = routingWithCandidateDistance;
+			this.config = config;
 		}
 		
-		public Factory(TransitSchedule schedule, Network network, PublicTransitMappingConfigGroup config) {
-			this(schedule, network, config.getTransportModeAssignment(), config.getTravelCostType(), config.getRoutingWithCandidateDistance());
+		public Factory(TransitSchedule schedule, Config mainConfig, Network network, PublicTransitMappingConfigGroup config) {
+			this(schedule, mainConfig,network, config.getTransportModeAssignment(), config.getTravelCostType(), config.getRoutingWithCandidateDistance());
 		}
 
 		@Override
 		public ScheduleRouters createInstance() {
-			return new ScheduleRoutersStandard(schedule, network, transportModeAssignment, costType, routingWithCandidateDistance);
+			return new ScheduleRoutersStandard(schedule,this.config, network, transportModeAssignment, costType, routingWithCandidateDistance);
 		}
 
 	}

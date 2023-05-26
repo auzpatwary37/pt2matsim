@@ -128,6 +128,11 @@ public class ScheduleRoutersOsmAttributes implements ScheduleRouters {
     public LeastCostPathCalculator.Path calcLeastCostPath(LinkCandidate fromLinkCandidate, LinkCandidate toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
         return this.calcLeastCostPath(fromLinkCandidate.getLink().getToNode().getId(), toLinkCandidate.getLink().getFromNode().getId(), transitLine, transitRoute);
     }
+    
+    @Override
+    public LeastCostPathCalculator.Path calcLeastCostPath(Link fromLinkCandidate, Link toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
+        return this.calcLeastCostPath(fromLinkCandidate.getToNode().getId(), toLinkCandidate.getFromNode().getId(), transitLine, transitRoute);
+    }
 
     @Override
     public LeastCostPathCalculator.Path calcLeastCostPath(Id<Node> fromNodeId, Id<Node> toNodeId, TransitLine transitLine, TransitRoute transitRoute) {

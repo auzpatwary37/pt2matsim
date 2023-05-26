@@ -18,8 +18,22 @@
 
 package org.matsim.pt2matsim.tools;
 
-import org.apache.logging.log4j.Logger;
+import static org.matsim.pt2matsim.tools.ScheduleTools.getTransitRouteLinkIds;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.TransportMode;
@@ -27,6 +41,7 @@ import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.NetworkFactory;
 import org.matsim.api.core.v01.network.Node;
+import org.matsim.core.config.Config;
 import org.matsim.core.config.groups.NetworkConfigGroup;
 import org.matsim.core.network.NetworkUtils;
 import org.matsim.core.network.algorithms.NetworkTransform;
@@ -43,10 +58,6 @@ import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersFactory;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersStandard;
-
-import java.util.*;
-
-import static org.matsim.pt2matsim.tools.ScheduleTools.getTransitRouteLinkIds;
 
 /**
  * Provides Tools for analysing and manipulating networks.
@@ -440,7 +451,7 @@ public final class NetworkTools {
 	/**
 	 * Creates mode dependent routers based on the actual network modes used.
 	 */
-	public static ScheduleRoutersFactory guessRouters(TransitSchedule schedule, Network network) {
+	public static ScheduleRoutersFactory guessRouters(TransitSchedule schedule, Network network, Config mainConfig) {
 		// for each schedule modes, look which network modes are used
 		Map<String, Set<String>> modeAssignments = new HashMap<>();
 		for(TransitLine transitLine : schedule.getTransitLines().values()) {
@@ -461,7 +472,7 @@ public final class NetworkTools {
 			config.addParameterSet(mra);
 		}
 
-		return new ScheduleRoutersStandard.Factory(schedule, network, modeAssignments, PublicTransitMappingConfigGroup.TravelCostType.linkLength, true);
+		return new ScheduleRoutersStandard.Factory(schedule, mainConfig,network, modeAssignments, PublicTransitMappingConfigGroup.TravelCostType.linkLength, true);
 	}
 
 	/**

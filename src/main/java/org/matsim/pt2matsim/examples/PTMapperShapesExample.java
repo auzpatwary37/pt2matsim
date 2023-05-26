@@ -1,6 +1,10 @@
 package org.matsim.pt2matsim.examples;
 
+import java.io.File;
+
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.gtfs.GtfsConverter;
@@ -15,8 +19,6 @@ import org.matsim.pt2matsim.tools.GtfsTools;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
 import org.matsim.pt2matsim.tools.ShapeTools;
-
-import java.io.File;
 
 /**
  * @author polettif
@@ -75,11 +77,12 @@ public class PTMapperShapesExample {
 
 	private static void runNormalMapping() {
 		PublicTransitMappingConfigGroup config = createTestPTMConfig();
-
+		Config  mainConfig = ConfigUtils.createConfig();
+		PTMapper.matchInfo(mainConfig, config);
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(unmappedScheduleFile);
 		Network network = NetworkTools.readNetwork(networkInput);
 		PTMapper ptMapper = new PTMapper(schedule, network);
-		ptMapper.run(config);
+		ptMapper.run(config,mainConfig);
 
 		NetworkTools.writeNetwork(network, networkOutput1);
 		ScheduleTools.writeTransitSchedule(ptMapper.getSchedule(), scheduleOutput1);
@@ -87,15 +90,17 @@ public class PTMapperShapesExample {
 
 	private static void runMappingWithShapes() {
 		PublicTransitMappingConfigGroup config = createTestPTMConfig();
+		
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(unmappedScheduleFile);
 		Network network = NetworkTools.readNetwork(networkInput);
-
-		ScheduleRoutersFactory routersFactory = new ScheduleRoutersGtfsShapes.Factory(schedule, network,
+		Config mainConfig = ConfigUtils.createConfig();
+		PTMapper.matchInfo(mainConfig, config);
+		ScheduleRoutersFactory routersFactory = new ScheduleRoutersGtfsShapes.Factory(schedule, mainConfig, network,
 				ShapeTools.readShapesFile(gtfsFolder + "shapes.txt", coordSys), config.getTransportModeAssignment(), config.getTravelCostType(),
 				50, 200);
 
 		PTMapper ptMapper = new PTMapper(schedule, network);
-		ptMapper.run(config, null, routersFactory);
+		ptMapper.run(config, mainConfig, null, routersFactory);
 
 		NetworkTools.writeNetwork(network, networkOutput2);
 		ScheduleTools.writeTransitSchedule(ptMapper.getSchedule(), scheduleOutput2);

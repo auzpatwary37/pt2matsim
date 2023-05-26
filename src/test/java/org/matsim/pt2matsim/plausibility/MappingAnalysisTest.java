@@ -1,10 +1,16 @@
 package org.matsim.pt2matsim.plausibility;
 
+import java.util.Map;
+import java.util.TreeMap;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.NetworkWriter;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
@@ -15,9 +21,6 @@ import org.matsim.pt2matsim.tools.NetworkToolsTest;
 import org.matsim.pt2matsim.tools.ScheduleToolsTest;
 import org.matsim.pt2matsim.tools.ShapeToolsTest;
 import org.matsim.pt2matsim.tools.lib.RouteShape;
-
-import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * @author polettif
@@ -34,10 +37,14 @@ public class MappingAnalysisTest {
 	@Before
 	public void prepare() {
 		PublicTransitMappingConfigGroup ptmConfig = PTMapperTest.initPTMConfig();
+		Config config = ConfigUtils.createConfig();
+		
 		Network network = NetworkToolsTest.initNetwork();
+		new NetworkWriter(network).write("netTest.xml");
+		config.network().setInputFile("netTest.xml");
 		TransitSchedule schedule = ScheduleToolsTest.initUnmappedSchedule();
-
-		new PTMapper(schedule, network).run(ptmConfig);
+		
+		new PTMapper(schedule, network).run(ptmConfig,config);
 
 		Map<Id<RouteShape>, RouteShape> shapes = ShapeToolsTest.initShapes();
 		analysis = new MappingAnalysis(schedule, network, shapes);

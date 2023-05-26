@@ -1,18 +1,23 @@
 package org.matsim.pt2matsim.editor;
 
+import static org.matsim.pt2matsim.tools.ScheduleToolsTest.LINE_B;
+import static org.matsim.pt2matsim.tools.ScheduleToolsTest.ROUTE_B;
+import static org.matsim.pt2matsim.tools.ScheduleToolsTest.initSchedule;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.Assert;
 import org.junit.Test;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.NetworkWriter;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.tools.NetworkToolsTest;
 import org.matsim.pt2matsim.tools.ScheduleTools;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.matsim.pt2matsim.tools.ScheduleToolsTest.*;
 
 /**
  * @author polettif
@@ -28,10 +33,12 @@ public class BasicScheduleEditorTest {
 	public void rerouteViaLink() {
 		TransitSchedule schedule = initSchedule();
 		Network network = NetworkToolsTest.initNetwork();
-
+		Config config = ConfigUtils.createConfig();
+		new NetworkWriter(network).write("netTest.xml");
+		config.network().setInputFile("netTest.xml");
 		String[] cmd = new String[]{ScheduleEditor.RR_VIA_LINK, LINE_B.toString(), ROUTE_B.toString(), "CX", "CB"};
 
-		new BasicScheduleEditor(schedule, network).executeCmdLine(cmd);
+		new BasicScheduleEditor(schedule, network,config).executeCmdLine(cmd);
 
 		List<Id<Link>> linkIds = ScheduleTools.getTransitRouteLinkIds(schedule.getTransitLines().get(LINE_B).getRoutes().get(ROUTE_B));
 
@@ -60,10 +67,12 @@ public class BasicScheduleEditorTest {
 	public void changeRefLink() {
 		TransitSchedule schedule = initSchedule();
 		Network network = NetworkToolsTest.initNetwork();
-
+		Config config = ConfigUtils.createConfig();
+		new NetworkWriter(network).write("netTest.xml");
+		config.network().setInputFile("netTest.xml");
 		String[] cmd = new String[]{ScheduleEditor.CHANGE_REF_LINK, ScheduleEditor.ALL_TRANSIT_ROUTES_ON_LINK, "XA", "stop3.link:XA", "XB"};
 
-		new BasicScheduleEditor(schedule, network).executeCmdLine(cmd);
+		new BasicScheduleEditor(schedule, network, config).executeCmdLine(cmd);
 
 		List<Id<Link>> linkIds = ScheduleTools.getTransitRouteLinkIds(schedule.getTransitLines().get(LINE_B).getRoutes().get(ROUTE_B));
 

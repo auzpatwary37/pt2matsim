@@ -1,7 +1,15 @@
 package org.matsim.pt2matsim.examples;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
@@ -16,7 +24,11 @@ import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersFactory;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersGtfsShapes;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersOsmAttributes;
 import org.matsim.pt2matsim.osm.OsmMultimodalNetworkConverter;
-import org.matsim.pt2matsim.osm.lib.*;
+import org.matsim.pt2matsim.osm.lib.AllowedTagsFilter;
+import org.matsim.pt2matsim.osm.lib.Osm;
+import org.matsim.pt2matsim.osm.lib.OsmData;
+import org.matsim.pt2matsim.osm.lib.OsmDataImpl;
+import org.matsim.pt2matsim.osm.lib.OsmFileReader;
 import org.matsim.pt2matsim.plausibility.MappingAnalysis;
 import org.matsim.pt2matsim.run.gis.Schedule2ShapeFile;
 import org.matsim.pt2matsim.tools.NetworkTools;
@@ -24,8 +36,6 @@ import org.matsim.pt2matsim.tools.ScheduleTools;
 import org.matsim.pt2matsim.tools.ShapeTools;
 import org.matsim.pt2matsim.tools.debug.ScheduleCleaner;
 import org.matsim.pt2matsim.tools.lib.RouteShape;
-
-import java.util.*;
 
 /**
  * Mapping example for public transit in the zurich area (agency: ZVV).
@@ -192,10 +202,11 @@ public class ZVVexample {
 
 		// create PTM config
 		PublicTransitMappingConfigGroup config = PublicTransitMappingConfigGroup.createDefaultConfig();
-
+		Config mainConfig = ConfigUtils.createConfig();
+		PTMapper.matchInfo(mainConfig, config);
 		// run PTMapper
 		PTMapper ptMapper = new PTMapper(schedule, network);
-		ptMapper.run(config);
+		ptMapper.run(config,mainConfig);
 
 		//
 		NetworkTools.writeNetwork(network, outputNetwork1);
@@ -217,14 +228,15 @@ public class ZVVexample {
 
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(inputScheduleFile);
 		Network network = NetworkTools.readNetwork(inputNetworkFile);
-
+		Config mainConfig = ConfigUtils.createConfig();
 		PublicTransitMappingConfigGroup config = PublicTransitMappingConfigGroup.createDefaultConfig();
+		PTMapper.matchInfo(mainConfig, config);
 		Map<Id<RouteShape>, RouteShape> shapes = ShapeTools.readShapesFile(gtfsShapeFile, coordSys);
 
-		ScheduleRoutersFactory routerFactory = new ScheduleRoutersGtfsShapes.Factory(schedule, network, shapes, config.getTransportModeAssignment(), config.getTravelCostType(), 50, 250);
+		ScheduleRoutersFactory routerFactory = new ScheduleRoutersGtfsShapes.Factory(schedule,mainConfig, network, shapes, config.getTransportModeAssignment(), config.getTravelCostType(), 50, 250);
 
 		PTMapper ptMapper = new PTMapper(schedule, network);
-		ptMapper.run(config, null, routerFactory);
+		ptMapper.run(config,mainConfig, null, routerFactory);
 
 		NetworkTools.writeNetwork(network, outputNetwork2);
 		ScheduleTools.writeTransitSchedule(schedule, outputSchedule2);
@@ -256,12 +268,13 @@ public class ZVVexample {
 		Network network = NetworkTools.readNetwork(inputNetworkFile);
 
 		PublicTransitMappingConfigGroup config = PublicTransitMappingConfigGroup.createDefaultConfig();
-
+		Config mainConfig = ConfigUtils.createConfig();
+		PTMapper.matchInfo(mainConfig, config);
 		// Initiate Router that uses osm data
 		ScheduleRoutersFactory routerFactory = new ScheduleRoutersOsmAttributes.Factory(schedule, network, config.getTransportModeAssignment(), PublicTransitMappingConfigGroup.TravelCostType.linkLength, 0.5);
 
 		PTMapper ptMapper = new PTMapper(schedule, network);
-		ptMapper.run(config, null, routerFactory);
+		ptMapper.run(config,mainConfig, null, routerFactory);
 
 		NetworkTools.writeNetwork(network, outputNetwork3);
 		ScheduleTools.writeTransitSchedule(schedule, outputSchedule3);

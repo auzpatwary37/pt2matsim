@@ -20,8 +20,10 @@
 package org.matsim.pt2matsim.mapping.networkRouter;
 
 import org.matsim.api.core.v01.Id;
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Node;
 import org.matsim.core.router.util.LeastCostPathCalculator;
+import org.matsim.core.router.util.LeastCostPathCalculator.Path;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitRouteStop;
@@ -62,6 +64,16 @@ public interface ScheduleRouters extends MapperModule {
 		synchronized LeastCostPathCalculator.Path calcPath(Node fromNode, Node toNode) {
 			return leastCostPathCalculator.calcLeastCostPath(fromNode, toNode, 0, null, null);
 		}
-
+		
+		public Class<? extends LeastCostPathCalculator> getLeastPathCalculatorType() {
+			return this.leastCostPathCalculator.getClass();
+		}
+		
+		public LeastCostPathCalculator getLeastCostPathCalculator() {
+			return this.leastCostPathCalculator;
+		}
 	}
+
+	public Path calcLeastCostPath(Link fromLinkCandidate, Link toLinkCandidate, TransitLine transitLine,
+			TransitRoute transitRoute);
 }

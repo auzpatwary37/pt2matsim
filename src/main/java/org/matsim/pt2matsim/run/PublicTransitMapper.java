@@ -25,6 +25,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.mapping.PTMapper;
@@ -75,14 +77,15 @@ public final class PublicTransitMapper {
 	 */
 	public static void run(String configFile) {
 		// Load config
-		PublicTransitMappingConfigGroup config = PublicTransitMappingConfigGroup.loadConfig(configFile);
-
+		Config configAll = ConfigUtils.loadConfig(configFile, new PublicTransitMappingConfigGroup());
+		PublicTransitMappingConfigGroup config = ConfigUtils.addOrGetModule(configAll, PublicTransitMappingConfigGroup.GROUP_NAME, PublicTransitMappingConfigGroup.class);
+		PTMapper.matchInfo(configAll, config);
 		// Load input schedule and network
 		TransitSchedule schedule = config.getInputScheduleFile() == null ? null : ScheduleTools.readTransitSchedule(config.getInputScheduleFile());
 		Network network = config.getInputNetworkFile() == null ? null : NetworkTools.readNetwork(config.getInputNetworkFile());
 
 		// Run PTMapper
-		PTMapper.mapScheduleToNetwork(schedule, network, config);
+		PTMapper.mapScheduleToNetwork(schedule, network, config,configAll);
 		// or: new PTMapper(schedule, network).run(config);
 
 		// Write the schedule and network to output files (if defined in config)

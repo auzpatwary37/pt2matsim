@@ -18,18 +18,20 @@
 
 package org.matsim.pt2matsim.editor;
 
+import java.io.IOException;
+
 import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.apache.logging.log4j.LogManager;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt.transitSchedule.api.TransitScheduleWriter;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
-
-import java.io.IOException;
 
 /**
  * Executes the BasicScheduleEditor with the given schedule, network and
@@ -70,24 +72,27 @@ public class RunScheduleEditor {
 	 *             [2] command csv file
 	 *             [3] output schedule file (optional if input file should be overwritten)
 	 *             [4] output network file (optional if input file should be overwritten)
+	 *             Assuming the last one is config file location
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException {
-		if(args.length == 5) {
-			run(args[0], args[1], args[2], args[3], args[4]);
-		} else if(args.length == 3) {
-			run(args[0], args[1], args[2], args[0], args[1]);
+		if(args.length == 6) {
+			run(args[0], args[1], args[2], args[3], args[4], args[5]);
+		} else if(args.length == 4) {
+			run(args[0], args[1], args[2], args[0], args[1], args[3]);
 		} else {
 			throw new IllegalArgumentException("Wrong number of input arguments.");
 		}
 	}
 
-	public static void run(String scheduleFile, String networkFile, String commandFile, String outputScheduleFile, String outputNetworkFile) throws IOException {
+	public static void run(String scheduleFile, String networkFile, String commandFile, String outputScheduleFile, String outputNetworkFile, String ConfigFile) throws IOException {
 		setLogLevels();
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(scheduleFile);
 		Network network = NetworkTools.readNetwork(networkFile);
-
-		ScheduleEditor scheduleEditor = new BasicScheduleEditor(schedule, network);
+		Config config  = ConfigUtils.createConfig();
+		ConfigUtils.loadConfig(config, ConfigFile);
+		config.network().setInputFile(networkFile);
+		ScheduleEditor scheduleEditor = new BasicScheduleEditor(schedule, network,config);
 		scheduleEditor.parseCommandCsv(commandFile);
 
 		ScheduleTools.assignScheduleModesToLinks(schedule, network);
@@ -96,8 +101,8 @@ public class RunScheduleEditor {
 		new NetworkWriter(network).write(outputNetworkFile);
 	}
 
-	public static void run(String scheduleFile, String networkFile, String commandFile) throws IOException {
-		run(scheduleFile, networkFile, commandFile, scheduleFile, networkFile);
+	public static void run(String scheduleFile, String networkFile, String commandFile, String configFile) throws IOException {
+		run(scheduleFile, networkFile, commandFile, scheduleFile, networkFile,configFile);
 	}
 
 	private static void setLogLevels() {

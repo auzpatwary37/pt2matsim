@@ -1,14 +1,22 @@
 package org.matsim.pt2matsim.mapping;
 
+import static org.matsim.pt2matsim.tools.ScheduleToolsTest.ROUTE_B;
+
+import java.util.List;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.NetworkWriter;
+import org.matsim.core.config.Config;
+import org.matsim.core.config.ConfigUtils;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
+import org.matsim.pt.transitSchedule.api.TransitScheduleWriter;
 import org.matsim.pt.transitSchedule.api.TransitStopFacility;
 import org.matsim.pt.utils.TransitScheduleValidator;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
@@ -17,10 +25,6 @@ import org.matsim.pt2matsim.run.CreateDefaultPTMapperConfig;
 import org.matsim.pt2matsim.tools.NetworkToolsTest;
 import org.matsim.pt2matsim.tools.ScheduleTools;
 import org.matsim.pt2matsim.tools.ScheduleToolsTest;
-
-import java.util.List;
-
-import static org.matsim.pt2matsim.tools.ScheduleToolsTest.ROUTE_B;
 
 /**
  * @author polettif
@@ -51,8 +55,13 @@ public class PTMapperTest {
 		ptmConfig = initPTMConfig();
 		network = NetworkToolsTest.initNetwork();
 		schedule = ScheduleToolsTest.initUnmappedSchedule();
-
-		new PTMapper(schedule, network).run(ptmConfig);
+		Config config = ConfigUtils.createConfig();
+		new NetworkWriter(network).write("netTest.xml");
+		new TransitScheduleWriter(schedule).writeFile("tsTest.xml");
+		config.network().setInputFile("netTest.xml");
+		config.transit().setTransitScheduleFile("tsTest.xml");
+		PTMapper.matchInfo(config, ptmConfig);
+		new PTMapper(schedule, network).run(ptmConfig,config);
 	}
 
 	@Test
@@ -92,11 +101,13 @@ public class PTMapperTest {
 	@Test
 	public void artificialLinks() {
 		PublicTransitMappingConfigGroup ptmConfig2 = initPTMConfig();
+		Config config = ConfigUtils.createConfig();
+		PTMapper.matchInfo(config, ptmConfig2);
 		ptmConfig2.setMaxLinkCandidateDistance(3);
 
 		TransitSchedule schedule2 = ScheduleToolsTest.initUnmappedSchedule();
 		Network network2 = NetworkToolsTest.initNetwork();
-		new PTMapper(schedule2, network2).run(ptmConfig2);
+		new PTMapper(schedule2, network2).run(ptmConfig2,config);
 
 		// 1 loop link, 3 artificial links
 		Assert.assertEquals(NetworkToolsTest.initNetwork().getLinks().size()+4, network2.getLinks().size());
@@ -105,6 +116,8 @@ public class PTMapperTest {
 	@Test
 	public void noTransportModeAssignment() {
 		PublicTransitMappingConfigGroup noTMAConfig = new PublicTransitMappingConfigGroup();
+		Config config = ConfigUtils.createConfig();
+		PTMapper.matchInfo(config, noTMAConfig);
 		noTMAConfig.getModesToKeepOnCleanUp().add("car");
 		noTMAConfig.setNumOfThreads(2);
 		noTMAConfig.setNLinkThreshold(4);
@@ -114,7 +127,7 @@ public class PTMapperTest {
 		TransitSchedule schedule2 = ScheduleToolsTest.initUnmappedSchedule();
 		Network network2 = NetworkToolsTest.initNetwork();
 
-		new PTMapper(schedule2, network2).run(noTMAConfig);
+		new PTMapper(schedule2, network2).run(noTMAConfig,config);
 
 		// only artificial links
 		for(TransitLine transitLine : schedule2.getTransitLines().values()) {

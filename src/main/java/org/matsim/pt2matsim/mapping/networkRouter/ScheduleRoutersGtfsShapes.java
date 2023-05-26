@@ -1,12 +1,18 @@
 package org.matsim.pt2matsim.mapping.networkRouter;
 
-import org.apache.logging.log4j.Logger;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.Node;
 import org.matsim.api.core.v01.population.Person;
+import org.matsim.core.config.Config;
 import org.matsim.core.router.FastAStarEuclideanFactory;
 import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.router.util.TravelDisutility;
@@ -18,18 +24,13 @@ import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitRouteStop;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
-import org.matsim.pt2matsim.tools.lib.RouteShape;
 import org.matsim.pt2matsim.mapping.linkCandidateCreation.LinkCandidate;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.PTMapperTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
 import org.matsim.pt2matsim.tools.ShapeTools;
+import org.matsim.pt2matsim.tools.lib.RouteShape;
 import org.matsim.vehicles.Vehicle;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Creates a Router for each shape (given by gtfs). Multiple transit routes
@@ -40,7 +41,7 @@ import java.util.Set;
 public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 
 	protected static Logger log = LogManager.getLogger(ScheduleRoutersGtfsShapes.class);
-
+	private final Config config;
 	// standard fields
 	private final TransitSchedule schedule;
 	private final Network network;
@@ -62,7 +63,7 @@ public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 	private final Map<TransitLine, Map<TransitRoute, ShapeRouter>> shapeRouters = new HashMap<>();
 
 
-	private ScheduleRoutersGtfsShapes(TransitSchedule schedule, Network network, Map<Id<RouteShape>, RouteShape> shapes, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType travelCostType, double maxWeightDistance, double cutBuffer) {
+	private ScheduleRoutersGtfsShapes(TransitSchedule schedule, Network network,Config config, Map<Id<RouteShape>, RouteShape> shapes, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType travelCostType, double maxWeightDistance, double cutBuffer) {
 		this.schedule = schedule;
 		this.network = network;
 		this.transportModeAssignment = transportModeAssignment;
@@ -70,7 +71,7 @@ public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 		this.shapes = shapes;
 		this.maxWeightDistance = maxWeightDistance;
 		this.cutBuffer = cutBuffer;
-
+		this.config = config;
 		load();
 	}
 
@@ -124,7 +125,11 @@ public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 	public LeastCostPathCalculator.Path calcLeastCostPath(LinkCandidate fromLinkCandidate, LinkCandidate toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
 		return this.calcLeastCostPath(fromLinkCandidate.getLink().getToNode().getId(), toLinkCandidate.getLink().getFromNode().getId(), transitLine, transitRoute);
 	}
-
+	@Override
+	public LeastCostPathCalculator.Path calcLeastCostPath(Link fromLinkCandidate, Link toLinkCandidate, TransitLine transitLine, TransitRoute transitRoute) {
+		return this.calcLeastCostPath(fromLinkCandidate.getToNode().getId(), toLinkCandidate.getFromNode().getId(), transitLine, transitRoute);
+	}
+	
 	@Override
 	public LeastCostPathCalculator.Path calcLeastCostPath(Id<Node> fromNodeId, Id<Node> toNodeId, TransitLine transitLine, TransitRoute transitRoute) {
 		Network n = networks.get(transitLine).get(transitRoute);
@@ -197,8 +202,9 @@ public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 		final private PublicTransitMappingConfigGroup.TravelCostType travelCostType;
 		final private double maxWeightDistance;
 		final private double cutBuffer;
+		final private Config config;
 		
-		public Factory(TransitSchedule schedule, Network network, Map<Id<RouteShape>, RouteShape> shapes, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType travelCostType, double maxWeightDistance, double cutBuffer) {
+		public Factory(TransitSchedule schedule,Config config, Network network, Map<Id<RouteShape>, RouteShape> shapes, Map<String, Set<String>> transportModeAssignment, PublicTransitMappingConfigGroup.TravelCostType travelCostType, double maxWeightDistance, double cutBuffer) {
 			this.schedule = schedule;
 			this.network = network;
 			this.shapes = shapes;
@@ -206,11 +212,12 @@ public class ScheduleRoutersGtfsShapes implements ScheduleRouters {
 			this.travelCostType = travelCostType;
 			this.maxWeightDistance = maxWeightDistance;
 			this.cutBuffer = cutBuffer;
+			this.config = config;
 		}
 
 		@Override
 		public ScheduleRouters createInstance() {
-			return new ScheduleRoutersGtfsShapes(schedule, network, shapes, transportModeAssignment, travelCostType, maxWeightDistance, cutBuffer);
+			return new ScheduleRoutersGtfsShapes(schedule, network, config,shapes, transportModeAssignment, travelCostType, maxWeightDistance, cutBuffer);
 		}
 		
 	}
