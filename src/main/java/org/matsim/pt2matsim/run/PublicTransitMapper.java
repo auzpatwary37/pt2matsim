@@ -78,6 +78,7 @@ public final class PublicTransitMapper {
 	public static void run(String configFile) {
 		// Load config
 		Config configAll = ConfigUtils.loadConfig(configFile, new PublicTransitMappingConfigGroup());
+		configAll.setContext(ConfigUtils.createConfig().getContext());
 		PublicTransitMappingConfigGroup config = ConfigUtils.addOrGetModule(configAll, PublicTransitMappingConfigGroup.GROUP_NAME, PublicTransitMappingConfigGroup.class);
 		PTMapper.matchInfo(configAll, config);
 		// Load input schedule and network

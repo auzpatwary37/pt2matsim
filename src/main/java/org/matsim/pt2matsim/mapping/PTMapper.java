@@ -101,14 +101,16 @@ public class PTMapper {
 	}
 
 	public void run(PublicTransitMappingConfigGroup config, Config mainConfig) {
-		String tempNetwork = "net.xml";
-		String tempSchedule = "ts.xml";
-		new NetworkWriter(this.network).write(tempNetwork);
-		new TransitScheduleWriter(this.schedule).writeFile(tempSchedule);
-		config.setInputNetworkFile(tempNetwork);
-		mainConfig.network().setInputFile(tempNetwork);
-		config.setInputScheduleFile(tempSchedule);
-		mainConfig.transit().setTransitScheduleFile(tempSchedule);
+		if(config.getInputNetworkFile()==null) {
+			String tempNetwork = "net.xml";
+			String tempSchedule = "ts.xml";
+			new NetworkWriter(this.network).write(tempNetwork);
+			new TransitScheduleWriter(this.schedule).writeFile(tempSchedule);
+			config.setInputNetworkFile(tempNetwork);
+			mainConfig.network().setInputFile(tempNetwork);
+			config.setInputScheduleFile(tempSchedule);
+			mainConfig.transit().setTransitScheduleFile(tempSchedule);
+		}
 		run(config,mainConfig, null, null);
 	}
 	
