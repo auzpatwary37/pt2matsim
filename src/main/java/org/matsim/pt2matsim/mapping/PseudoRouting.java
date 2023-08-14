@@ -1,6 +1,7 @@
 package org.matsim.pt2matsim.mapping;
 
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.lanes.Lanes;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt2matsim.mapping.linkCandidateCreation.LinkCandidate;
 import org.matsim.pt2matsim.mapping.pseudoRouter.ArtificialLink;
@@ -39,5 +40,9 @@ public interface PseudoRouting extends Runnable {
 	 * Adds the necessary artificial links to the network.
 	 */
 	void addArtificialLinks(Network network);
-
+	
+	/**
+	 * Adds the necessary artificial links to the network considering lanes.
+	 */
+	void addArtificialLinks(Network network, Lanes lanes);
 }

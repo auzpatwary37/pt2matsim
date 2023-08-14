@@ -23,10 +23,14 @@ package org.matsim.pt2matsim.run;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.scenario.ScenarioUtils;
+import org.matsim.lanes.Lanes;
+import org.matsim.lanes.LanesReader;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.mapping.PTMapper;
@@ -84,9 +88,14 @@ public final class PublicTransitMapper {
 		// Load input schedule and network
 		TransitSchedule schedule = config.getInputScheduleFile() == null ? null : ScheduleTools.readTransitSchedule(config.getInputScheduleFile());
 		Network network = config.getInputNetworkFile() == null ? null : NetworkTools.readNetwork(config.getInputNetworkFile());
-
+		Lanes lanes = null;
+		if(configAll.network().getLaneDefinitionsFile()!=null) {
+			Scenario scn = ScenarioUtils.createScenario(ConfigUtils.createConfig());
+			new LanesReader(scn).readFile(configAll.network().getLaneDefinitionsFile());
+			lanes = scn.getLanes();
+		}
 		// Run PTMapper
-		PTMapper.mapScheduleToNetwork(schedule, network, config,configAll);
+		PTMapper.mapScheduleToNetwork(schedule, network, lanes, config,configAll);
 		// or: new PTMapper(schedule, network).run(config);
 
 		// Write the schedule and network to output files (if defined in config)

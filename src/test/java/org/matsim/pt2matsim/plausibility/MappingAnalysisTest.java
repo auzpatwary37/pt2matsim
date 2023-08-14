@@ -44,7 +44,7 @@ public class MappingAnalysisTest {
 		config.network().setInputFile("netTest.xml");
 		TransitSchedule schedule = ScheduleToolsTest.initUnmappedSchedule();
 		
-		new PTMapper(schedule, network).run(ptmConfig,config);
+		new PTMapper(schedule, network, null).run(ptmConfig,config);
 
 		Map<Id<RouteShape>, RouteShape> shapes = ShapeToolsTest.initShapes();
 		analysis = new MappingAnalysis(schedule, network, shapes);

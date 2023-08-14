@@ -20,9 +20,15 @@ package org.matsim.pt2matsim.mapping;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.router.util.LeastCostPathCalculator;
+import org.matsim.core.utils.collections.Tuple;
+import org.matsim.lanes.Lane;
+import org.matsim.lanes.Lanes;
+import org.matsim.lanes.LanesFactory;
+import org.matsim.lanes.LanesToLinkAssignment;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitRouteStop;
@@ -32,10 +38,14 @@ import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRouters;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersFactory;
 import org.matsim.pt2matsim.mapping.pseudoRouter.*;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -216,6 +226,92 @@ public class PseudoRoutingImpl implements PseudoRouting {
 				network.addLink(a);
 			}
 		}
+	}
+	
+	@Override
+	public void addArtificialLinks(Network network, Lanes lanes) {
+		for(ArtificialLink a : necessaryArtificialLinks) {
+			if(!network.getLinks().containsKey(a.getId())) {
+				network.addLink(a);
+				boolean requireLane = false;
+				for(Link inLink:a.getFromNode().getInLinks().values()) {
+					if(lanes.getLanesToLinkAssignments().containsKey(inLink.getId())) {
+						requireLane = true;
+						break;
+					}
+				}
+				if(requireLane == true) {
+					LanesFactory lFac = lanes.getFactory();
+					for(Link inLink:a.getFromNode().getInLinks().values()) {
+						LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(inLink.getId());
+						if(l2l == null) {
+							l2l = lFac.createLanesToLinkAssignment(inLink.getId());
+							lanes.addLanesToLinkAssignment(l2l);
+						}
+						
+						Map<Id<Link>, Integer> order = orderToLinks(inLink,null);
+						for(Link outLink:a.getFromNode().getOutLinks().values()) {
+							Id<Lane> lId = Id.create(inLink.getFromNode().getId().toString()+"-"+inLink.getToNode().getId().toString()+"-"+outLink.getToNode().getId().toString(), Lane.class);
+							if(!l2l.getLanes().containsKey(lId)) {
+								Lane l = lFac.createLane(lId);
+								l.setAlignment(order.get(outLink.getId()));
+								l.setCapacityVehiclesPerHour(1800*outLink.getNumberOfLanes());
+								l.setStartsAtMeterFromLinkEnd(100);
+								l.setNumberOfRepresentedLanes(outLink.getNumberOfLanes());
+								l.addToLinkId(outLink.getId());
+								l2l.addLane(l);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * 
+	 * @param link the from Link for which lanes are to be ordered.
+	 * @param restrictions the lane restrictions. if null then will assume no restrictions.
+	 * @return
+	 */
+	public static Map<Id<Link>,Integer> orderToLinks(Link link, Map<Id<Link>,Integer>restrictions) {
+		Map<Id<Link>, Integer> order = new HashMap<>();
+		TreeMap<Double,Id<Link>> angle = new TreeMap<>();
+		
+		for(Link l: link.getToNode().getOutLinks().values()) {
+			if(restrictions==null || restrictions.containsKey(l.getId()) && restrictions.get(l.getId())!=0) {
+				angle.put( getAngle(link,l),l.getId());
+			}
+		}
+		int nPlus = 0;
+		int nMinus = 0;
+		if(angle.size()%2==0) {
+			nPlus = angle.size()/2-1;
+			nMinus = -1*angle.size()/2;
+		}else {
+			nPlus = (angle.size()-1)/2;
+			nMinus = -1*(angle.size()-1)/2;
+		}
+		
+		for(int i = nMinus;i<=nPlus;i++) {
+			Entry<Double, Id<Link>> p = angle.pollLastEntry();
+			order.put(p.getValue(),i);
+		}
+		
+		return order;
+	}
+	
+	public static double getAngle(Link l1, Link l2) {
+		
+		Tuple<Double,Double> vec1 = new Tuple<>(l1.getToNode().getCoord().getX()-l1.getFromNode().getCoord().getX(),l1.getToNode().getCoord().getY()-l1.getFromNode().getCoord().getY());
+		Tuple<Double,Double> vec2 = new Tuple<>(l2.getToNode().getCoord().getX()-l2.getFromNode().getCoord().getX(),l2.getToNode().getCoord().getY()-l2.getFromNode().getCoord().getY());
+		
+		double dot = vec1.getFirst()*vec2.getFirst()+vec1.getSecond()*vec2.getSecond();
+		
+		double det = vec1.getFirst()*vec2.getSecond() - vec1.getSecond()*vec2.getFirst();    
+		double angle = Math.toDegrees(Math.atan2(det, dot));  
+		
+		return angle;
 	}
 
 }

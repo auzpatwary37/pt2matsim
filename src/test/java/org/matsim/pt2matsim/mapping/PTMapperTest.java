@@ -61,7 +61,7 @@ public class PTMapperTest {
 		config.network().setInputFile("netTest.xml");
 		config.transit().setTransitScheduleFile("tsTest.xml");
 		PTMapper.matchInfo(config, ptmConfig);
-		new PTMapper(schedule, network).run(ptmConfig,config);
+		new PTMapper(schedule, network, null).run(ptmConfig,config);
 	}
 
 	@Test
@@ -107,7 +107,7 @@ public class PTMapperTest {
 
 		TransitSchedule schedule2 = ScheduleToolsTest.initUnmappedSchedule();
 		Network network2 = NetworkToolsTest.initNetwork();
-		new PTMapper(schedule2, network2).run(ptmConfig2,config);
+		new PTMapper(schedule2, network2, null).run(ptmConfig2,config);
 
 		// 1 loop link, 3 artificial links
 		Assert.assertEquals(NetworkToolsTest.initNetwork().getLinks().size()+4, network2.getLinks().size());
@@ -127,7 +127,7 @@ public class PTMapperTest {
 		TransitSchedule schedule2 = ScheduleToolsTest.initUnmappedSchedule();
 		Network network2 = NetworkToolsTest.initNetwork();
 
-		new PTMapper(schedule2, network2).run(noTMAConfig,config);
+		new PTMapper(schedule2, network2, null).run(noTMAConfig,config);
 
 		// only artificial links
 		for(TransitLine transitLine : schedule2.getTransitLines().values()) {

@@ -205,7 +205,7 @@ public class ZVVexample {
 		Config mainConfig = ConfigUtils.createConfig();
 		PTMapper.matchInfo(mainConfig, config);
 		// run PTMapper
-		PTMapper ptMapper = new PTMapper(schedule, network);
+		PTMapper ptMapper = new PTMapper(schedule, network, null);
 		ptMapper.run(config,mainConfig);
 
 		//
@@ -235,7 +235,7 @@ public class ZVVexample {
 
 		ScheduleRoutersFactory routerFactory = new ScheduleRoutersGtfsShapes.Factory(schedule,mainConfig, network, shapes, config.getTransportModeAssignment(), config.getTravelCostType(), 50, 250);
 
-		PTMapper ptMapper = new PTMapper(schedule, network);
+		PTMapper ptMapper = new PTMapper(schedule, network, null);
 		ptMapper.run(config,mainConfig, null, routerFactory);
 
 		NetworkTools.writeNetwork(network, outputNetwork2);
@@ -273,7 +273,7 @@ public class ZVVexample {
 		// Initiate Router that uses osm data
 		ScheduleRoutersFactory routerFactory = new ScheduleRoutersOsmAttributes.Factory(schedule, network, config.getTransportModeAssignment(), PublicTransitMappingConfigGroup.TravelCostType.linkLength, 0.5);
 
-		PTMapper ptMapper = new PTMapper(schedule, network);
+		PTMapper ptMapper = new PTMapper(schedule, network, null);
 		ptMapper.run(config,mainConfig, null, routerFactory);
 
 		NetworkTools.writeNetwork(network, outputNetwork3);

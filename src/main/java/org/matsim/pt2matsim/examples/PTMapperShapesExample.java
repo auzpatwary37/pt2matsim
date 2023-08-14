@@ -81,7 +81,7 @@ public class PTMapperShapesExample {
 		PTMapper.matchInfo(mainConfig, config);
 		TransitSchedule schedule = ScheduleTools.readTransitSchedule(unmappedScheduleFile);
 		Network network = NetworkTools.readNetwork(networkInput);
-		PTMapper ptMapper = new PTMapper(schedule, network);
+		PTMapper ptMapper = new PTMapper(schedule, network, null);
 		ptMapper.run(config,mainConfig);
 
 		NetworkTools.writeNetwork(network, networkOutput1);
@@ -99,7 +99,7 @@ public class PTMapperShapesExample {
 				ShapeTools.readShapesFile(gtfsFolder + "shapes.txt", coordSys), config.getTransportModeAssignment(), config.getTravelCostType(),
 				50, 200);
 
-		PTMapper ptMapper = new PTMapper(schedule, network);
+		PTMapper ptMapper = new PTMapper(schedule, network, null);
 		ptMapper.run(config, mainConfig, null, routersFactory);
 
 		NetworkTools.writeNetwork(network, networkOutput2);

@@ -31,6 +31,7 @@ import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.NetworkWriter;
 import org.matsim.core.config.Config;
+import org.matsim.lanes.Lanes;
 import org.matsim.pt.transitSchedule.api.TransitLine;
 import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
@@ -73,16 +74,17 @@ public class PTMapper {
 	protected static Logger log = LogManager.getLogger(PTMapper.class);
 	private final PseudoSchedule pseudoSchedule = new PseudoScheduleImpl();
 	private Network network;
+	private Lanes lanes;
 	private TransitSchedule schedule;
 
-	public static void mapScheduleToNetwork(TransitSchedule schedule, Network network, PublicTransitMappingConfigGroup config, Config mainConfig) {
+	public static void mapScheduleToNetwork(TransitSchedule schedule, Network network,Lanes lanes, PublicTransitMappingConfigGroup config, Config mainConfig) {
 		if(config.getInputNetworkFile() != null) {
 			log.warn("The input network file set in PublicTransitMappingConfigGroup is ignored");
 		}
 		if(config.getInputScheduleFile() != null) {
 			log.warn("The input schedule file set in PublicTransitMappingConfigGroup is ignored");
 		}
-		new PTMapper(schedule, network).run(config,mainConfig);
+		new PTMapper(schedule, network, lanes).run(config,mainConfig);
 	}
 
 	/**
@@ -95,9 +97,10 @@ public class PTMapper {
 	 * @param schedule which will be newly routed.
 	 * @param network  schedule is mapped to this network, is modified
 	 */
-	public PTMapper(TransitSchedule schedule, Network network) {
+	public PTMapper(TransitSchedule schedule, Network network, Lanes lanes) {
 		this.schedule = schedule;
 		this.network = network;
+		this.lanes = lanes;
 	}
 
 	public void run(PublicTransitMappingConfigGroup config, Config mainConfig) {
@@ -218,7 +221,8 @@ public class PTMapper {
 		log.info("=====================================");
 		log.info("Adding artificial links to network...");
 		for(PseudoRouting prt : pseudoRoutingRunnables) {
-			prt.addArtificialLinks(network);
+			if(this.lanes == null)prt.addArtificialLinks(network);
+			else prt.addArtificialLinks(network, lanes);
 			pseudoSchedule.mergePseudoSchedule(prt.getPseudoSchedule());
 		}
 

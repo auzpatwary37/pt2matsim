@@ -39,7 +39,7 @@ public class Workflow {
 		Config config = ConfigUtils.createConfig();
 		PTMapper.matchInfo(config, mapperConfig);
 		// map schedule to network
-		PTMapper.mapScheduleToNetwork(schedule,  network, mapperConfig,config);
+		PTMapper.mapScheduleToNetwork(schedule,  network, null, mapperConfig,config);
 
 		// write mapping results
 		NetworkTools.writeNetwork(network, "output/network.xml.gz");

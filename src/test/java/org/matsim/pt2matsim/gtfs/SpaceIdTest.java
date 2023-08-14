@@ -70,7 +70,7 @@ public class SpaceIdTest {
 		PublicTransitMappingConfigGroup mapperConfig = new PublicTransitMappingConfigGroup();
 		Config config = ConfigUtils.createConfig();
 		PTMapper.matchInfo(config, mapperConfig);
-		PTMapper.mapScheduleToNetwork(schedule, network, mapperConfig,config);
+		PTMapper.mapScheduleToNetwork(schedule, network, null, mapperConfig,config);
 
 		new PlausibilityCheck(schedule, network, "EPSG:2154").runCheck();
 
