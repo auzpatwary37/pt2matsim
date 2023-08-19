@@ -18,8 +18,21 @@
 
 package org.matsim.pt2matsim.mapping;
 
-import org.apache.logging.log4j.Logger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Queue;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
@@ -36,17 +49,12 @@ import org.matsim.pt2matsim.mapping.linkCandidateCreation.LinkCandidate;
 import org.matsim.pt2matsim.mapping.linkCandidateCreation.LinkCandidateCreator;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRouters;
 import org.matsim.pt2matsim.mapping.networkRouter.ScheduleRoutersFactory;
-import org.matsim.pt2matsim.mapping.pseudoRouter.*;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import org.matsim.pt2matsim.mapping.pseudoRouter.ArtificialLink;
+import org.matsim.pt2matsim.mapping.pseudoRouter.PseudoGraph;
+import org.matsim.pt2matsim.mapping.pseudoRouter.PseudoGraphImpl;
+import org.matsim.pt2matsim.mapping.pseudoRouter.PseudoRouteStop;
+import org.matsim.pt2matsim.mapping.pseudoRouter.PseudoSchedule;
+import org.matsim.pt2matsim.mapping.pseudoRouter.PseudoScheduleImpl;
 
 /**
  * Generates and calculates the pseudoRoutes for all the queued
@@ -250,7 +258,7 @@ public class PseudoRoutingImpl implements PseudoRouting {
 						}
 						
 						Map<Id<Link>, Integer> order = orderToLinks(inLink,null);
-						for(Link outLink:a.getFromNode().getOutLinks().values()) {
+						for(Link outLink:inLink.getToNode().getOutLinks().values()) {
 							Id<Lane> lId = Id.create(inLink.getFromNode().getId().toString()+"-"+inLink.getToNode().getId().toString()+"-"+outLink.getToNode().getId().toString(), Lane.class);
 							if(!l2l.getLanes().containsKey(lId)) {
 								Lane l = lFac.createLane(lId);
@@ -277,25 +285,45 @@ public class PseudoRoutingImpl implements PseudoRouting {
 	public static Map<Id<Link>,Integer> orderToLinks(Link link, Map<Id<Link>,Integer>restrictions) {
 		Map<Id<Link>, Integer> order = new HashMap<>();
 		TreeMap<Double,Id<Link>> angle = new TreeMap<>();
-		
+		List<Tuple<Id<Link>,Double>> angles = new ArrayList<>();
+		//System.out.println();
 		for(Link l: link.getToNode().getOutLinks().values()) {
 			if(restrictions==null || restrictions.containsKey(l.getId()) && restrictions.get(l.getId())!=0) {
-				angle.put( getAngle(link,l),l.getId());
+				//angle.put( getAngle(link,l),l.getId());
+				angles.add(new Tuple<>(l.getId(),getAngle(link,l)));
 			}
 		}
+		
+		Collections.sort(angles,new Comparator<Tuple<Id<Link>,Double>>(){
+
+			@Override
+			public int compare(Tuple<Id<Link>, Double> o1, Tuple<Id<Link>, Double> o2) {
+				 if (o1.getSecond() == o2.getSecond())
+			            return 0;
+			        else if (o1.getSecond() > o2.getSecond())
+			            return 1;
+			        else
+			            return -1;
+				
+			}
+			
+		});
+		
 		int nPlus = 0;
 		int nMinus = 0;
-		if(angle.size()%2==0) {
-			nPlus = angle.size()/2-1;
-			nMinus = -1*angle.size()/2;
+		if(angles.size()%2==0) {
+			nPlus = angles.size()/2-1;
+			nMinus = -1*angles.size()/2;
 		}else {
-			nPlus = (angle.size()-1)/2;
-			nMinus = -1*(angle.size()-1)/2;
+			nPlus = (angles.size()-1)/2;
+			nMinus = -1*(angles.size()-1)/2;
 		}
-		
+		int j = 0;
 		for(int i = nMinus;i<=nPlus;i++) {
-			Entry<Double, Id<Link>> p = angle.pollLastEntry();
-			order.put(p.getValue(),i);
+			//Entry<Double, Id<Link>> p = angle.pollLastEntry();
+			Tuple<Id<Link>,Double> pp = angles.get(j);
+			order.put(pp.getFirst(),i);
+			j++;
 		}
 		
 		return order;

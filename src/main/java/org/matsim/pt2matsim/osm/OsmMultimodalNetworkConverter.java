@@ -46,6 +46,7 @@ import org.matsim.pt2matsim.tools.NetworkTools;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Converts {@link OsmData} to a MATSim network, uses a config file
@@ -92,6 +93,12 @@ public class OsmMultimodalNetworkConverter {
 	protected AllowedTagsFilter ptFilter;
 	protected OsmConverterConfigGroup.OsmWayParams ptDefaultParams;
 	protected LinkGeometryExporter geometryExporter;
+	
+	private Map<Id<Link>,String> laneRestrictions = new HashMap<>();
+	private Map<Id<Link>,Double> parkingMultiplier = new HashMap<>();
+	private Map<Id<Link>,Double> sidewalkMultiplier = new HashMap<>();
+	
+	
 
 	public OsmMultimodalNetworkConverter(OsmData osmData) {
 		this.osmData = osmData;
@@ -352,6 +359,15 @@ public class OsmMultimodalNetworkConverter {
 		double laneCountDefault = wayDefaultParams.getLanes();
 		double laneCountForward = calculateLaneCount(way, true, oneway || onewayReverse, laneCountDefault);
 		double laneCountBackward = calculateLaneCount(way, false, oneway || onewayReverse, laneCountDefault);
+		
+		String turnRestrictionForward = this.fetchTurnRestriction(way, true, oneway || onewayReverse, laneCountDefault);
+		String turnRestrictionBackward = this.fetchTurnRestriction(way, false, oneway || onewayReverse, laneCountDefault);
+		
+		//double parkingMultiplierForward = this.fetchParking(way, true, oneway || onewayReverse, laneCountDefault);
+		//double parkingMultiplierBackward = this.fetchParking(way, false, oneway || onewayReverse, laneCountDefault);
+		
+		double sidewalkMultiplierForward = this.fetchSidewalk(way, true, oneway || onewayReverse, laneCountDefault);
+		double sidewalkMultiplierBackward = this.fetchSidewalk(way, false, oneway || onewayReverse, laneCountDefault);
 
 		// CAPACITY
 		//double capacity = laneCountDefault * laneCapacity;
@@ -389,6 +405,9 @@ public class OsmMultimodalNetworkConverter {
 				l.setCapacity(laneCountForward * laneCapacity);
 				l.setNumberOfLanes(laneCountForward);
 				l.setAllowedModes(modes);
+				if(turnRestrictionForward!=null)this.laneRestrictions.put(l.getId(),turnRestrictionForward);
+				//this.parkingMultiplier.put(l.getId(), parkingMultiplierForward);
+				this.sidewalkMultiplier.put(l.getId(), sidewalkMultiplierForward);
 
 				network.addLink(l);
 				osmIds.put(l.getId(), way.getId());
@@ -404,7 +423,11 @@ public class OsmMultimodalNetworkConverter {
 				l.setCapacity(laneCountBackward * laneCapacity);
 				l.setNumberOfLanes(laneCountBackward);
 				l.setAllowedModes(modes);
-
+				
+				if(turnRestrictionBackward!=null)this.laneRestrictions.put(l.getId(),turnRestrictionBackward);
+				//this.parkingMultiplier.put(l.getId(), parkingMultiplierBackward);
+				this.sidewalkMultiplier.put(l.getId(), sidewalkMultiplierBackward);
+			
 				network.addLink(l);
 				osmIds.put(l.getId(), way.getId());
 				geometryExporter.addLinkDefinition(linkId, new LinkDefinition(toNode, fromNode, way));
@@ -490,6 +513,76 @@ public class OsmMultimodalNetworkConverter {
 			laneCount = 1;
 		
 		return laneCount;
+	}
+	
+	private String fetchTurnRestriction(final Osm.Way way, boolean forward, boolean isOneway, double defaultLaneCount) {
+		String turn = way.getTags().get(Osm.Key.combinedKey(Osm.Key.TURN,Osm.Key.LANES));
+		String turnForward = way.getTags().get(Osm.Key.combinedKey(Osm.Key.TURN,Osm.Key.LANES,Osm.Key.FORWARD));
+		String turnBackward = way.getTags().get(Osm.Key.combinedKey(Osm.Key.TURN,Osm.Key.LANES,Osm.Key.BACKWARD));
+		
+		if(isOneway && forward) {
+			if(turnForward!=null)return turnForward;
+			else if(turn!=null) return turn;
+		} else if(isOneway && !forward) {
+			if(turnBackward!=null)return turnBackward;
+			else if(turn!=null) return turn;
+		}else if(!isOneway) {
+			if(forward) return turnForward;
+			else return turnBackward;
+		}
+		return null;
+	}
+	
+	private String fetchVariableLanes(final Osm.Way way, boolean forward, boolean isOneway, double defaultLaneCount) {
+		return null;
+	}
+	
+	private double fetchParking(final Osm.Way way, boolean forward, boolean isOneway, double defaultLaneCount) {
+		
+		boolean hasParking = false;
+		
+		for(Entry<String, String> e:way.getTags().entrySet()) {
+			if(e.getKey().contains(Osm.Key.PARKING)||e.getValue().contains(Osm.Key.PARKING))hasParking = true;
+			break;
+		}
+		
+		boolean parkingBoth = way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.BOTH))?
+				!way.getTags().get(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.BOTH)).equals("no"):false;
+		boolean parkingLeft = way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.LEFT))?
+				!way.getTags().get(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.LEFT)).equals("no"):false;
+		
+		boolean parkingRight = way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.RIGHT))?
+				!way.getTags().get(Osm.Key.combinedKey(Osm.Key.PARKING,Osm.Key.RIGHT)).equals("no"):false;
+		
+		if(!hasParking || way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.PARKING,"lane",Osm.Key.BOTH)) && !parkingBoth ) {
+			return 0d;
+		}else if(hasParking && isOneway && forward && !parkingBoth||!parkingLeft) {
+			return 0d;
+		}else if(hasParking && isOneway && !forward && !parkingBoth||!parkingRight) {
+			return 0d;
+		}else if(hasParking && isOneway && parkingBoth || parkingLeft && parkingRight) {
+			return 2d;
+		}else {
+			return 1d;
+		}
+	}
+	
+	private double fetchSidewalk(final Osm.Way way, boolean forward, boolean isOneway, double defaultLaneCount) {
+		boolean sidewalk =way.getTags().containsKey(Osm.Key.SIDEWALK)?!way.getTags().get(Osm.Key.SIDEWALK).equals("no"):false;
+		boolean sidewalkBoth = way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.BOTH))?!way.getTags().get(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.BOTH)).equals("no"):false;
+		boolean sidewalkLeft =way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.LEFT))? !way.getTags().get(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.LEFT)).equals("no"):false;
+		boolean sidewalkRight = way.getTags().containsKey(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.RIGHT))?!way.getTags().get(Osm.Key.combinedKey(Osm.Key.SIDEWALK,Osm.Key.RIGHT)).equals("no"):false;
+		
+		if(!(sidewalk && sidewalkBoth && sidewalkLeft && sidewalkRight)) {
+			return 0d;
+		}else if(!isOneway && (forward && !sidewalk&&!sidewalkBoth&&!sidewalkLeft) || (!forward && !sidewalk&&!sidewalkBoth&&!sidewalkRight)){
+			return 0d;
+		}
+		else if(isOneway && (sidewalkBoth||sidewalkLeft && sidewalkRight)) {
+			return 2d;
+		}else {
+			return 1d;
+		}
 	}
 	
 	private Optional<Double> parseLanesValue(final Osm.Way way, String key) {
@@ -607,7 +700,7 @@ public class OsmMultimodalNetworkConverter {
 			}
 
 			// relation info
-			for(Osm.Relation rel : way.getRelations().values()) {
+			for(Osm.Relation rel : way.getRelations().values()) { 
 				// route
 				String route = rel.getTags().get(Osm.Key.ROUTE);
 				if(route != null) {
@@ -626,6 +719,12 @@ public class OsmMultimodalNetworkConverter {
 					link.getAttributes().putAttribute(osmRouteMasterKey, CollectionUtils.setToString(attr));
 				}
 			}
+			
+			//Additional attributes collected
+			
+			if(this.laneRestrictions.get(link.getId())!=null)link.getAttributes().putAttribute("turn", this.laneRestrictions.get(link.getId()));
+			//link.getAttributes().putAttribute("parking", this.parkingMultiplier.get(link.getId()));
+			link.getAttributes().putAttribute("sidewalk", this.sidewalkMultiplier.get(link.getId()));
 		}
 	}
 

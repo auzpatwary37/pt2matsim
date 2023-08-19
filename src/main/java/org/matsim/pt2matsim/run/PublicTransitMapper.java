@@ -31,6 +31,7 @@ import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.lanes.Lanes;
 import org.matsim.lanes.LanesReader;
+import org.matsim.lanes.LanesWriter;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.mapping.PTMapper;
@@ -64,11 +65,18 @@ public final class PublicTransitMapper {
 	 * @param args <br/>[0] PublicTransitMapping config file<br/>
 	 */
 	public static void main(String[] args) {
-		if(args.length == 1) {
-			run(args[0]);
+		if(args.length == 2) {
+			run(args[0],args[1]);
 		} else {
-			throw new IllegalArgumentException("Public Transit Mapping config file as argument needed");
+			throw new IllegalArgumentException("Both config and Public Transit Mapping config file as argument needed");
 		}
+	}
+	
+	public static void run(String mainConfig, String ptMapperConfig) {
+		PublicTransitMappingConfigGroup config = PublicTransitMappingConfigGroup.loadConfig(ptMapperConfig);
+		Config configAll = ConfigUtils.createConfig();
+		ConfigUtils.loadConfig(configAll, mainConfig);
+		run(configAll,config);
 	}
 
 	/**
@@ -79,11 +87,8 @@ public final class PublicTransitMapper {
 	 *
 	 * @param configFile the PublicTransitMapping config file
 	 */
-	public static void run(String configFile) {
+	public static void run(Config configAll, PublicTransitMappingConfigGroup config) {
 		// Load config
-		Config configAll = ConfigUtils.loadConfig(configFile, new PublicTransitMappingConfigGroup());
-		configAll.setContext(ConfigUtils.createConfig().getContext());
-		PublicTransitMappingConfigGroup config = ConfigUtils.addOrGetModule(configAll, PublicTransitMappingConfigGroup.GROUP_NAME, PublicTransitMappingConfigGroup.class);
 		PTMapper.matchInfo(configAll, config);
 		// Load input schedule and network
 		TransitSchedule schedule = config.getInputScheduleFile() == null ? null : ScheduleTools.readTransitSchedule(config.getInputScheduleFile());
@@ -104,6 +109,7 @@ public final class PublicTransitMapper {
 			try {
 				ScheduleTools.writeTransitSchedule(schedule, config.getOutputScheduleFile());
 				NetworkTools.writeNetwork(network, config.getOutputNetworkFile());
+				new LanesWriter(lanes).write(configAll.network().getLaneDefinitionsFile().replace(".xml", "_out.xml"));
 			} catch (Exception e) {
 				log.error("Cannot write to output directory!");
 			}

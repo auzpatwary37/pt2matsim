@@ -15,7 +15,9 @@ import org.matsim.core.config.Config;
 import org.matsim.core.network.algorithms.NetworkInverter;
 import org.matsim.core.network.algorithms.NetworkTurnInfoBuilder;
 import org.matsim.core.network.algorithms.NetworkTurnInfoBuilderI;
+import org.matsim.core.router.FastAStarEuclideanFactory;
 import org.matsim.core.router.FastAStarLandmarksFactory;
+import org.matsim.core.router.FastDijkstraFactory;
 import org.matsim.core.router.costcalculators.TravelDisutilityFactory;
 import org.matsim.core.router.util.LeastCostPathCalculator;
 import org.matsim.core.router.util.LeastCostPathCalculatorFactory;
@@ -90,7 +92,8 @@ public class ScheduleRoutersStandard implements ScheduleRouters {
 		log.info("==============================================");
 		log.info("Creating network routers for transit routes...");
 		log.info("Initiating network and router for transit routes...");
-		LeastCostPathCalculatorFactory factory = new FastAStarLandmarksFactory(nThreads);
+		//LeastCostPathCalculatorFactory factory = new FastAStarLandmarksFactory(nThreads);
+		LeastCostPathCalculatorFactory factory = new FastAStarEuclideanFactory(nThreads);
 		
 		for(TransitLine transitLine : schedule.getTransitLines().values()) {
 			for(TransitRoute transitRoute : transitLine.getRoutes().values()) {
