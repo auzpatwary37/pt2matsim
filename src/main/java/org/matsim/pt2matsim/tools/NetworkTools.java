@@ -74,9 +74,8 @@ public final class NetworkTools {
 	 * Reads and returns a network
 	 */
 	public static Network readNetwork(String fileName) {
-		Network network = NetworkUtils.createNetwork();
-		new MatsimNetworkReader(network).readFile(fileName);
-		return network;
+		Network net = NetworkUtils.readNetwork(fileName);
+		return net;
 	}
 
 	public static void writeNetwork(Network network, String fileName) {

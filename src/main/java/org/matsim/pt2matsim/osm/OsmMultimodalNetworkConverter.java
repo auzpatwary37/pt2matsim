@@ -100,6 +100,10 @@ public class OsmMultimodalNetworkConverter {
 	
 	
 
+	public Map<Id<Link>, Id<Osm.Way>> getOsmIds() {
+		return osmIds;
+	}
+
 	public OsmMultimodalNetworkConverter(OsmData osmData) {
 		this.osmData = osmData;
 	}

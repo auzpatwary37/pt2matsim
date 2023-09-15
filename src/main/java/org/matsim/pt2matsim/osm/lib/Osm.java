@@ -163,6 +163,11 @@ public final class Osm {
 		public static final String LEFT = "left";
 		public static final String RIGHT = "right";
 		public static final String BOTH = "both";
+		public static final String RESTRICTION = "restriction";
+		public static final String FROM = "from";
+		public static final String TO = "to";
+		public static final String VIA = "via";
+		public static final String CONDITIONAL = "conditional";
 		
 		
 		public static final List<String> DEFAULT_KEYS = Arrays.asList(

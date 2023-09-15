@@ -21,24 +21,32 @@
 
 package org.matsim.pt2matsim.run;
 
-import org.apache.logging.log4j.Logger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.scenario.ScenarioUtils;
+import org.matsim.lanes.Lane;
 import org.matsim.lanes.Lanes;
 import org.matsim.lanes.LanesReader;
+import org.matsim.lanes.LanesToLinkAssignment;
 import org.matsim.lanes.LanesWriter;
+import org.matsim.pt.transitSchedule.api.TransitLine;
+import org.matsim.pt.transitSchedule.api.TransitRoute;
 import org.matsim.pt.transitSchedule.api.TransitSchedule;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.mapping.PTMapper;
 import org.matsim.pt2matsim.tools.NetworkTools;
 import org.matsim.pt2matsim.tools.ScheduleTools;
-
-import java.util.Collections;
 
 /**
  * Allows to run an implementation
@@ -110,6 +118,7 @@ public final class PublicTransitMapper {
 				ScheduleTools.writeTransitSchedule(schedule, config.getOutputScheduleFile());
 				NetworkTools.writeNetwork(network, config.getOutputNetworkFile());
 				new LanesWriter(lanes).write(configAll.network().getLaneDefinitionsFile().replace(".xml", "_out.xml"));
+				checkConsistensy(network,schedule,lanes);
 			} catch (Exception e) {
 				log.error("Cannot write to output directory!");
 			}
@@ -119,5 +128,52 @@ public final class PublicTransitMapper {
 		} else {
 			log.info("No output paths defined, schedule and network are not written to files.");
 		}
+	}
+	public static int[] checkConsistensy(Network net,TransitSchedule ts,Lanes lanes) {
+		int wrongRoutes = 0;
+		int missingLink = 0;
+		int missingConnections = 0;
+		int total = 0;
+		for(TransitLine tl:ts.getTransitLines().values()){
+			for(TransitRoute tr:tl.getRoutes().values()){
+				List<Id<Link>> links = new ArrayList<>();
+				
+				links.add(tr.getRoute().getStartLinkId());
+				links.addAll(tr.getRoute().getLinkIds());
+				links.add(tr.getRoute().getEndLinkId());
+				boolean problem = false;
+				for(int i = 0;i<links.size();i++){
+					if(!net.getLinks().containsKey(links.get(i))) {
+						log.error("Link with id"+links.get(i)+"is not present in the network.");
+						missingLink++;
+						problem = true;
+					}
+					if(i<links.size()-1 && lanes.getLanesToLinkAssignments().get(links.get(i))!=null) {
+						total++;
+						boolean connected = false;
+						for(Lane l:lanes.getLanesToLinkAssignments().get(links.get(i)).getLanes().values()){
+							if(l.getToLinkIds().contains(links.get(i+1))) {
+								connected = true;
+								break;
+							}
+						}
+						if(!connected) {
+							LanesToLinkAssignment l2l = lanes.getLanesToLinkAssignments().get(links.get(i));
+							log.error("Link with id "+links.get(i)+" is not connected to link "+links.get(i+1)+" using any lanes, Adding artificial lane");
+							Lane lane = lanes.getFactory().createLane(Id.create(links.get(i).toString()+"_"+links.get(i+1).toString(), Lane.class));
+							lane.addToLinkId(links.get(i+1));
+							lane.setCapacityVehiclesPerHour(1800);
+							lane.setNumberOfRepresentedLanes(1);
+							lane.setStartsAtMeterFromLinkEnd(50);
+							l2l.addLane(lane);
+							missingConnections++;
+							problem = true;
+						}
+					}
+				}
+				if(problem)wrongRoutes++;
+			}
+		}
+		return new int[] {wrongRoutes,missingLink,missingConnections};
 	}
 }
